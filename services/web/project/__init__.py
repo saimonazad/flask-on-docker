@@ -1,7 +1,7 @@
 import os
 
 from werkzeug.utils import secure_filename
-from flask import (
+from flask import(
     Flask,
     jsonify,
     send_from_directory,
@@ -20,11 +20,13 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(128), unique=True, nullable=False)
-    active = db.Column(db.Boolean(), default=True, nullable=False)
+    name = db.Column(db.String(128), unique=True, nullable=False)
+    image = db.Column(db.String(128), nullable=False)
 
-    def __init__(self, email):
-        self.email = email
+    def __init__(self, id, name, image):
+        self.id = id
+        self.name = name
+        self.image = image
 
 
 @app.route("/")
@@ -43,15 +45,28 @@ def mediafiles(filename):
 
 
 @app.route("/upload", methods=["GET", "POST"])
-def upload_file():
-    if request.method == "POST":
-        file = request.files["file"]
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config["MEDIA_FOLDER"], filename))
-    return """
-    <!doctype html>
-    <title>upload new File</title>
-    <form action="" method=post enctype=multipart/form-data>
-      <p><input type=file name=file><input type=submit value=Upload>
-    </form>
-    """
+def user():
+    if ('image' not in request.files):
+        resp = jsonify({'message' : 'No file part in the request'})
+        resp.status_code = 400
+        return resp
+    else:
+        try:
+            id = request.values['id']
+            name = request.values['name']
+            image = request.files['image']
+            filename = secure_filename(image.filename)
+            if filename == '':
+                resp = jsonify({'message' : 'No file selected for uploading'})
+                resp.status_code = 400
+                return resp
+            else:
+                image.save(os.path.join(app.config["MEDIA_FOLDER"], filename))
+                
+            user = User(id, name, filename)
+            db.session.add(user)
+            db.session.commit()
+            return jsonify({'id': id,'name': name, 'image': filename}), 201
+            
+        except Exception as e:
+            return jsonify({'message' : e}), 400
